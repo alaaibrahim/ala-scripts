@@ -29,17 +29,21 @@ def main():
             assert False, "Unhandled option"
     if username == "" or password == "" or server == "" or filename == "":
         usage()
-        sys.exit(1)
+        sys.exit(2)
     f = open(filename,'r');
     message = f.read()
     f.close()
     appendMessage(username, password, server, mailbox, message);
 
 def appendMessage(username, password, server, mailbox, message):
-    con = imaplib.IMAP4(server)
-    con.login(username,password)
-    con.append(mailbox,[],0,message)
-    con.close;
+    try:
+        con = imaplib.IMAP4(server)
+        con.login(username,password)
+        con.append(mailbox,[],0,message)
+        con.close
+    except:
+        print "Error: ",sys.exc_info()
+        sys.exit(1)
 
 def usage():
     progname = sys.argv[0]
