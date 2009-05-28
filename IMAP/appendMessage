@@ -1,0 +1,57 @@
+#!/bin/env python
+import imaplib;
+import getopt;
+import sys;
+
+
+def main():
+    try:
+        options,args = getopt.getopt(sys.argv[1:],"u:s:p:f:m:");
+    except getopt.GetoptError, err:
+        print str(err)
+        usage()
+        sys.exit(2)
+    username = password = server = filename = ""
+    mailbox = "INBOX"
+
+    for o, a in options:
+        if o == "-u":
+            username = a
+        elif o == "-s":
+            server = a
+        elif o == "-p":
+            password = a
+        elif o == "-f":
+            filename = a
+        elif o == "-m":
+            mailbox = a
+        else:
+            assert False, "Unhandled option"
+    if username == "" or password == "" or server == "" or filename == "":
+        usage()
+        sys.exit(1)
+    f = open(filename,'r');
+    message = f.read()
+    f.close()
+    appendMessage(username, password, server, mailbox, message);
+
+def appendMessage(username, password, server, mailbox, message):
+    con = imaplib.IMAP4(server)
+    con.login(username,password)
+    con.append(mailbox,[],0,message)
+    con.close;
+
+def usage():
+    progname = sys.argv[0]
+    sys.stderr.write( "USAGE\n" +
+    progname + " -u username -p password -s server -f file [-m mailbox]\n"+
+    """
+u: mailserver username
+s: mailserver server to connect to
+f: file containing the message
+m: mailbox to put message into
+
+""");
+
+if __name__ == "__main__":
+    main()

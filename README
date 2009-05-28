@@ -1,0 +1,6 @@
+These are scripts that makes my life easier
+
+enable-ssh : a script that creates an ssh key if a one is not there, then scp that key to the server.
+rm2mp3: a script that I use to convert rm files to mp3 or ogg, actually it can be used to convert any format readable by mplayer, it uses lame for mp3, and vorbis-tools for ogg.
+IMAP/appendMessage: a script that I use to append a message to an IMAP mailbox.
+IMAP/countInbox: a script to count the number of messages in an IMAP mailbox.

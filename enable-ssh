@@ -1,0 +1,13 @@
+#!/bin/bash
+if test -z "$1"; then
+        echo Usage: $0 '[-p <port>] <host>'
+        exit 1
+fi
+
+if ! test -s $HOME/.ssh/id_rsa.pub; then
+    ssh-keygen -t rsa
+fi
+
+cd
+cat $HOME/.ssh/id_rsa.pub | \
+    ssh "$@" "mkdir -p .ssh; chmod 700 .ssh;touch .ssh/authorized_keys; chmod g-w .ssh/authorized_keys; cat >> .ssh/authorized_keys"

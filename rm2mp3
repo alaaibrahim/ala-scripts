@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+  echo "USAGE: $0 file [files]"
+  exit
+fi
+
+PROGRAMNAME=`basename "$0"`
+MPLAYERPATH="/usr/bin/mplayer"
+LAMEPATH="/usr/bin/lame"
+OGGENCPATH="/usr/bin/oggenc"
+TMPPATH="/tmp"
+
+while [ $# -gt 0 ]; do
+  echo "Converting File $1 ..."
+  echo "Reading PCM ..."
+  FILENAME
+  TMPNAME="$TMPPATH/`basename "$1"`.pcm"
+  $MPLAYERPATH -ao pcm:file=%`expr length "$TMPNAME"`%"$TMPNAME" "$1"
+  if [ $PROGRAMNAME = "rm2mp3" ]; then
+    MP3NAME=`echo $1 | sed -r 's@\.ra?m@@i'`.mp3
+    $LAMEPATH "$TMPNAME" "$MP3NAME"
+  else
+    OGGNAME=`echo $1 | sed -r 's@\.ra?m@@i'`.ogg
+    $OGGENCPATH "$TMPNAME" -o "$OGGNAME"
+  fi
+  rm "$TMPNAME"
+  shift 1
+done

@@ -1,0 +1,56 @@
+#!/bin/env python
+import imaplib;
+import getopt;
+import sys;
+#options,args = getopt.getopt(sys.argv[1:],'u:sm');
+#print options;
+
+def main():
+    try:
+        options,args = getopt.getopt(sys.argv[1:],'u:s:p:m:');
+    except getopt.GetoptError, err:
+        print str(err)
+        usage()
+        sys.exit(2)
+    username = password = server = ""
+    mailbox = "INBOX"
+    for o, a in options:
+        if o == "-u":
+            username = a
+        elif o == "-s":
+            server = a
+        elif o == "-p":
+            password = a
+        elif o == "-m":
+            mailbox = a
+        else:
+            assert False, "Unhandled option"
+    if username == "" or password == "" or server == "":
+        usage()
+        sys.exit(1)
+    getInboxCount(username,server,password,mailbox)
+
+def getInboxCount(username,server,password,mailbox):
+    con = imaplib.IMAP4(server)
+    con.login(username,password)
+    res = con.select(mailbox)
+    con.close
+    print res[1][0]
+
+def usage():
+    progname = sys.argv[0]
+    sys.stderr.write( "USAGE\n" +
+    progname + " -u username -p password -s server [-m mailbox]\n" +
+    """
+u: mail username
+s: mail server to connect to
+p: mail password
+m: mailbox to read the count of messages
+
+Note: You can provide more than one mailbox
+
+
+""")
+
+if __name__ == "__main__":
+    main()
