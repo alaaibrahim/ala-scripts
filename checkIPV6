@@ -1,0 +1,25 @@
+#!/bin/bash
+function restartGW {
+    /etc/init.d/gw6c restart
+    date >> /var/log/checkipv
+}
+stat="`/etc/init.d/gw6c status | tr -d ' ' | cut -d':' -f2`"
+if [ $stat == 'stopped' ]
+then
+    restartGW
+elif [ $stat == 'started' ]
+then
+    IPV4connected="`echo $(nc -zv www.google.com 80 2>&1) | cut -d')' -f2 | tr -d ' '`"
+    if [ $IPV4connected == "open" ]
+    then
+        # check ipv6 connectivity
+        IPV6connected="`echo $(nc -6zv ipv6.google.com 80 2>&1) | cut -d')' -f2 | tr -d ' '`"
+        if [ $IPV6connected == "open" ]
+        then
+            exit 0;
+        else
+            restartGW
+        fi
+    fi
+fi
+exit 0
