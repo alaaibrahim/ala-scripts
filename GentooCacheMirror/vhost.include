@@ -1,0 +1,7 @@
+<Directory "/var/gentoo-mirror">
+	ErrorDocument 404 /gentoo-mirror/404.php
+	Order allow,deny
+	Allow from all
+</Directory>
+
+# vim: ts=4 filetype=apache
