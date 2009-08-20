@@ -4,10 +4,10 @@ function restartGW {
     date >> /var/log/checkipv
 }
 stat="`/etc/init.d/gw6c status | tr -d ' ' | cut -d':' -f2`"
-if [ $stat == 'stopped' ]
+if [ "$stat" == 'stopped' ]
 then
     restartGW
-elif [ $stat == 'started' ]
+elif [ "$stat" == 'started' ]
 then
     IPV4connected="`echo $(nc -zv www.google.com 80 2>&1) | cut -d')' -f2 | tr -d ' '`"
     if [ $IPV4connected == "open" ]
