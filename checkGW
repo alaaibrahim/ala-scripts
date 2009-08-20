@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Timeout for a ping request from the machine
+TIMEOUT=2
+# The Array of gateways, the first one has the highest priority
+DEFAULTGW=(192.168.1.1 192.168.1.2 192.168.1.3)
+# The time between each check
+SLEEPTIME=10
+
+function switchGW {
+    newRoute=$1
+    /sbin/ip route change default via $newRoute
+}
+
+function getDefaultGW {
+    /sbin/ip route | grep default | cut -d' ' -f3
+}
+
+function GWAlive {
+    /bin/ping -W $TIMEOUT -c 1 google.com > /dev/null  2>&1
+}
+while :
+do
+    GWAlive
+    RET=$?
+    if [ $RET -ne 0 ]
+    then
+        echo "`getDefaultGW` is Down"
+        # Loop through the gateways
+        SUCCESS=0
+        for i in ${DEFAULTGW[@]}; do
+        	echo "Trying GW $i"
+    	switchGW $i
+    	GWAlive
+    	TEST=$?
+    	if [ $TEST -eq 0 ]
+    	then
+    	    #This One is working
+    	    echo "$i seams functioning"
+    	    SUCCESS=1
+    	    break
+    	fi
+        done
+        if [ $SUCCESS -eq 0 ]
+        then
+        	echo "All Gateways are down, switching to $DEFAULTGW and waiting for next check"
+		    switchGW $DEFAULTGW
+        fi
+    fi
+    sleep $SLEEPTIME
+done
