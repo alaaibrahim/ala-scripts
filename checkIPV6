@@ -1,9 +1,9 @@
 #!/bin/bash
 function restartGW {
-    /etc/init.d/gw6c restart
+    /etc/init.d/gogoc restart
     date >> /var/log/checkipv
 }
-stat="`/etc/init.d/gw6c status | tr -d ' ' | cut -d':' -f2`"
+stat="`/etc/init.d/gogoc status | tr -d ' ' | cut -d':' -f2`"
 if [ "$stat" == 'stopped' ]
 then
     restartGW
