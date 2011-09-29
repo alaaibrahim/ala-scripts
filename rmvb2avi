@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+  echo "USAGE: $0 file [files]"
+  exit
+fi
+
+MENCODER='/usr/bin/mencoder'
+while [ $# -gt 0 ]; do
+  echo "Converting file $1 ..."
+  # You might need to change this to gsed instead of sed to get the "-r" paramter from gnu sed
+  AVINAME="`echo $1 | sed -r 's@\.rmvb@@i'`.avi"
+  echo $AVINAME
+  $MENCODER "$1" -oac mp3lame -lameopts preset=128 -ovc lavc -lavcopts vcodec=mpeg4:vbitrate=1200 -ofps 25 -of avi -o "$AVINAME"
+  shift 1
+done
