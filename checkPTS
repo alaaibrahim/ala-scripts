@@ -1,0 +1,22 @@
+#!/bin/bash
+function addCommand {
+    echo "$1" >> /tmp/report
+    $1 >> /tmp/report
+}
+
+if [ $(ls -1 /dev/pts/| wc -l) -ne $(( $(find /var/run/screen/ -type p | wc -l) + $(w -h | wc -l)  )) ]; then
+    addCommand "ls -l /dev/pts"
+    addCommand "find /var/run/screen/ -type p"
+    addCommand "w"
+    addCommand "ps auxw"
+    addCommand "netstat -tnp"
+    addCommand "cat /proc/loadavg"
+    addCommand "free -m"
+    for i in /var/log/syslog /var/log/messages /var/log/auth.log /var/log/lastlog /var/log/wtmp; do
+        gzip -c $i  > /tmp/$(basename $i).gz
+    done
+    # root@localhost is configured to send to the right email
+    cat /tmp/report | mutt -s "[ERROR] Count of pts is not the same as in utmp + screen" root@localhost -a /tmp/syslog.gz /tmp/messages.gz /tmp/auth.log.gz /tmp/lastlog.gz /tmp/wtmp.gz
+    # Clean up
+    rm -f /tmp/syslog.gz /tmp/messages.gz /tmp/auth.log.gz /tmp/lastlog.gz /tmp/wtmp.gz /tmp/report
+fi
