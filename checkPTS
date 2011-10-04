@@ -3,8 +3,14 @@ function addCommand {
     echo "$1" >> /tmp/report
     $1 >> /tmp/report
 }
+PTS_COUNT=$(ls -1 /dev/pts/| wc -l)
+PTS_SCREEN=$(find /var/run/screen/ -type p | wc -l)
+PTS_W=$(w -h | wc -l)
 
-if [ $(ls -1 /dev/pts/| wc -l) -ne $(( $(find /var/run/screen/ -type p | wc -l) + $(w -h | wc -l)  )) ]; then
+if [ $PTS_COUNT -ne $(( $PTS_SCREEN + $PTS_W )) ]; then
+    echo "PTS_COUNT=$PTS_COUNT" > /tmp/report
+    echo "PTS_SCREEN=$PTS_SCREEN" >> /tmp/report
+    echo "PTS_W=$PTS_W" >> /tmp/report
     addCommand "ls -l /dev/pts"
     addCommand "find /var/run/screen/ -type p"
     addCommand "w"
