@@ -5,7 +5,7 @@ function addCommand {
 }
 PTS_COUNT=$(ls -1 /dev/pts/| wc -l)
 PTS_SCREEN=$(find /var/run/screen/ -type p | wc -l)
-PTS_W=$(w -h | wc -l)
+PTS_W=$(w -h | grep -v ttyS0 | wc -l)
 
 if [ $PTS_COUNT -ne $(( $PTS_SCREEN + $PTS_W )) ]; then
     echo "PTS_COUNT=$PTS_COUNT" > /tmp/report
