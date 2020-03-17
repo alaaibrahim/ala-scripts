@@ -8,5 +8,7 @@ checkGW: A script to change my default gateway, when the current one fails.
 checkPTS: A script to check if someone logged into the machine and removed his entry from /var/run/utmp
 mg: A script to handle gvim server to only load one per project, and switch to
 it.
+eix-fzf: a script to use eix with fzf, using `-i` will get installed packages,
+and `-a` will query all packages, and `-f` to refresh the cache.
 IMAP/appendMessage: a script that I use to append a message to an IMAP mailbox.
 IMAP/countInbox: a script to count the number of messages in an IMAP mailbox.

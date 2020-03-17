@@ -1,0 +1,80 @@
+#!/bin/bash
+
+function getReposPath {
+  local locations=""
+  if [ -d /etc/portage/repos.conf ]; then
+    if [ -n "$(find /etc/portage/repos.conf -maxdepth 1 -name '*.conf' -print -quit)" ]; then
+      locations="$(grep -E '^location' /etc/portage/repos.conf/*.conf | cut -d '=' -f2 | xargs echo)"
+    fi
+  elif [ -f /etc/portage/repos.conf ]; then
+    locations="$(grep -E '^location' /etc/portage/repos.conf | cut -d '=' -f2 | xargs echo)"
+  fi
+  if [ -z "${locations}" ]; then
+    locations="/var/db/repos/gentoo"
+  fi
+  echo "$locations"
+}
+
+CACHE_FILE_INSTALLED=/tmp/eix-installed
+CACHE_FILE_ALL=/tmp/eix-all
+
+function updateGetAllCache {
+  if [ -z "$REPO_PATHS" ]; then
+    REPO_PATHS="$(getReposPath)"
+  fi
+
+  find $REPO_PATHS -maxdepth 2 -mindepth 2 -type d | perl -pe 's/.*\/(.*?)\/(.*?)/\1\/\2/g' | sort -u | tee $CACHE_FILE_ALL
+}
+
+function updateGetInstalledCache {
+  equery list -F '$cp' "*" | uniq | tee $CACHE_FILE_INSTALLED
+}
+
+function getPackages {
+  cat $CACHE_FILE
+}
+refresh=0
+CACHE_FILE=$CACHE_FILE_INSTALLED
+updateGetCache=updateGetInstalledCache
+EIX="eix -I"
+while getopts "fia" opt; do
+  case ${opt} in
+    f )
+      refresh=1
+      ;;
+    i)
+      CACHE_FILE=$CACHE_FILE_INSTALLED
+      updateGetCache=updateGetInstalledCache
+      EIX="eix -I"
+      ;;
+    a)
+      CACHE_FILE=$CACHE_FILE_ALL
+      updateGetCache=updateGetAllCache
+      EIX="eix"
+      ;;
+    * )
+      ;;
+  esac
+done
+shift $((OPTIND -1))
+
+if [ ! -f $CACHE_FILE ]; then
+  refresh=0
+fi
+
+packagesCall=getPackages
+if [ $refresh -eq 1 ]; then
+  packagesCall=$updateGetCache
+fi
+
+fzfCall="fzf-tmux +s"
+if [ ${#} -gt 0 ]; then
+  fzfCall="fzf-tmux +s -q \""${1}\"""
+  package=$($packagesCall | fzf-tmux +s -1 -q "${1}")
+else
+  package=$($packagesCall | fzf-tmux +s)
+fi
+
+if [ -n "${package}" ]; then
+  $EIX -e "${package}"
+fi
