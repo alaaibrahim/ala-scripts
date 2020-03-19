@@ -59,7 +59,7 @@ done
 shift $((OPTIND -1))
 
 if [ ! -f $CACHE_FILE ]; then
-  refresh=0
+  refresh=1
 fi
 
 packagesCall=getPackages
