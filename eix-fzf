@@ -1,30 +1,10 @@
 #!/bin/bash
-
-function getReposPath {
-  local locations=""
-  if [ -d /etc/portage/repos.conf ]; then
-    if [ -n "$(find /etc/portage/repos.conf -maxdepth 1 -name '*.conf' -print -quit)" ]; then
-      locations="$(grep -E '^location' /etc/portage/repos.conf/*.conf | cut -d '=' -f2 | xargs echo)"
-    fi
-  elif [ -f /etc/portage/repos.conf ]; then
-    locations="$(grep -E '^location' /etc/portage/repos.conf | cut -d '=' -f2 | xargs echo)"
-  fi
-  if [ -z "${locations}" ]; then
-    locations="/var/db/repos/gentoo"
-  fi
-  echo "$locations"
-}
-
 CACHE_FILE_INSTALLED=/tmp/eix-installed
 CACHE_FILE_ALL=/tmp/eix-all
 
 function updateGetAllCache {
-  if [ -z "$REPO_PATHS" ]; then
-    REPO_PATHS="$(getReposPath)"
-  fi
-
-  # shellcheck disable=SC2086
-  find $REPO_PATHS -maxdepth 2 -mindepth 2 -type d | perl -pe 's/.*\/(.*?)\/(.*?)/\1\/\2/g' | sort -u | tee $CACHE_FILE_ALL
+  # shellcheck disable=SC2016
+  equery list -p -F '$cp' "*" | uniq | tee $CACHE_FILE_ALL
 }
 
 function updateGetInstalledCache {

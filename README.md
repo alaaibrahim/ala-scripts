@@ -24,14 +24,3 @@ A script to use eix with fzf.
  * `-a`: Query all packages.
  * `-f`: refresh cache.
 
-### Environment Variables
- * `REPO_PATHS`: Paths for all installed package repos to search through (If not
-   supplied will try to get it from `/etc/portage/repos.conf`)
-   
-   Example:
-   
-   ```shell
-   export REPO_PATHS="/var/db/repos/gentoo /var/lib/layman/lisp"
-   ```
-
-
