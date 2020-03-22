@@ -23,16 +23,19 @@ function updateGetAllCache {
     REPO_PATHS="$(getReposPath)"
   fi
 
+  # shellcheck disable=SC2086
   find $REPO_PATHS -maxdepth 2 -mindepth 2 -type d | perl -pe 's/.*\/(.*?)\/(.*?)/\1\/\2/g' | sort -u | tee $CACHE_FILE_ALL
 }
 
 function updateGetInstalledCache {
+  # shellcheck disable=SC2016
   equery list -F '$cp' "*" | uniq | tee $CACHE_FILE_INSTALLED
 }
 
 function getPackages {
-  cat $CACHE_FILE
+  cat "$CACHE_FILE"
 }
+
 refresh=0
 CACHE_FILE=$CACHE_FILE_INSTALLED
 updateGetCache=updateGetInstalledCache
@@ -67,9 +70,7 @@ if [ $refresh -eq 1 ]; then
   packagesCall=$updateGetCache
 fi
 
-fzfCall="fzf-tmux +s"
 if [ ${#} -gt 0 ]; then
-  fzfCall="fzf-tmux +s -q \""${1}\"""
   package=$($packagesCall | fzf-tmux +s -1 -q "${1}")
 else
   package=$($packagesCall | fzf-tmux +s)
