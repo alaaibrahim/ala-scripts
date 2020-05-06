@@ -17,13 +17,19 @@ function getPackages {
 }
 
 refresh=0
+nooutput=0
 CACHE_FILE=$CACHE_FILE_INSTALLED
 updateGetCache=updateGetInstalledCache
 EIX="eix -I"
-while getopts "fia" opt; do
+preview=0
+while getopts "Ffiap" opt; do
   case ${opt} in
-    f )
+    f)
       refresh=1
+      ;;
+    F)
+      refresh=1
+      nooutput=1
       ;;
     i)
       CACHE_FILE=$CACHE_FILE_INSTALLED
@@ -35,11 +41,21 @@ while getopts "fia" opt; do
       updateGetCache=updateGetAllCache
       EIX="eix"
       ;;
+    p)
+      preview=1
+      ;;
     * )
       ;;
   esac
 done
 shift $((OPTIND -1))
+
+preview_command=""
+
+if [ $preview -eq 1 ]; then
+  # shellcheck disable=SC2089
+  preview_command="$EIX -F {}"
+fi
 
 if [ ! -f $CACHE_FILE ]; then
   refresh=1
@@ -50,10 +66,15 @@ if [ $refresh -eq 1 ]; then
   packagesCall=$updateGetCache
 fi
 
+if [ $nooutput -eq 1 ]; then
+  $packagesCall > /dev/null
+  exit $?
+fi
+
 if [ ${#} -gt 0 ]; then
-  package=$($packagesCall | fzf-tmux +s -1 -q "${1}")
+  package=$($packagesCall | fzf-tmux +s --preview "$preview_command" -1 -q "${1}")
 else
-  package=$($packagesCall | fzf-tmux +s)
+  package=$($packagesCall | fzf-tmux +s --preview "$preview_command")
 fi
 
 if [ -n "${package}" ]; then
