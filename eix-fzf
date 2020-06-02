@@ -22,7 +22,7 @@ CACHE_FILE=$CACHE_FILE_INSTALLED
 updateGetCache=updateGetInstalledCache
 EIX="eix -I"
 preview=0
-while getopts "Ffiaph" opt; do
+while getopts "Ffianph" opt; do
   case ${opt} in
     f)
       refresh=1
@@ -44,6 +44,9 @@ while getopts "Ffiaph" opt; do
     p)
       preview=1
       ;;
+    n)
+      preview=0
+      ;;
     h)
       printf "usage: %s [options]\n\n" "$0"
       printf "  -f  Refresh Cache\n"
@@ -51,6 +54,7 @@ while getopts "Ffiaph" opt; do
       printf "      for updating the cache in a hook, or a cron)\n"
       printf "  -i  Query only installed packages (Default)\n"
       printf "  -a  Query all packages\n"
+      printf "  -n  Don't show preview window in tmux (Default)\n"
       printf "  -p  Show preview window in tmux\n"
       printf "  -h  Show this help\n"
       printf "\n"
