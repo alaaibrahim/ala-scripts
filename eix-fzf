@@ -4,7 +4,7 @@ CACHE_FILE_ALL=/tmp/eix-all
 
 function updateGetAllCache {
   # shellcheck disable=SC2016
-  equery list -p -F '$cp' "*" | uniq | tee >(sort > $CACHE_FILE_ALL)
+  equery list -o -p -F '$cp' "*" | uniq | tee >(sort > $CACHE_FILE_ALL)
 }
 
 function updateGetInstalledCache {
