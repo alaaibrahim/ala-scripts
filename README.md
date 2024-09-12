@@ -11,6 +11,12 @@ switch to the already loaded one and open the file.
  * gvim (or macvim) compiled with `+clientserver` `:h clientserver`
  * [wmctrl](http://sweb.cz/tripie/utils/wmctrl) for Linux (Optional).
 
+## nvt
+similar to mg (or at least have the same goal), to only have one nvim server per
+project/tmux session, and switch using tmux to the pane containing the nvim
+server
+
+
 ## eix-fzf
 A script to use eix with fzf.
 
