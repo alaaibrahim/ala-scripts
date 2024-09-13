@@ -21,7 +21,7 @@ function getTTy {
 
   local tty=$(ps -p "$pid" -o "tty" | tail -1 | sed 's@ *$@@g')
 
-  if [ "$tty" = "??" ]; then
+  if [ "$tty" = "??" -o "$tty" = "?" ]; then
     local ppid=$(ps -p "$pid" -o "ppid" | tail -1 | sed 's@ *$@@g')
     getTTy "$ppid"
     return
