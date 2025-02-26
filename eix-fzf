@@ -22,7 +22,8 @@ CACHE_FILE=$CACHE_FILE_INSTALLED
 updateGetCache=updateGetInstalledCache
 EIX="eix -I"
 preview=0
-while getopts "Ffianph" opt; do
+runEIX=1
+while getopts "FfianphE" opt; do
   case ${opt} in
     f)
       refresh=1
@@ -47,6 +48,9 @@ while getopts "Ffianph" opt; do
     n)
       preview=0
       ;;
+    E)
+      runEIX=0
+      ;;
     h)
       printf "usage: %s [options]\n\n" "$0"
       printf "  -f  Refresh Cache\n"
@@ -56,6 +60,7 @@ while getopts "Ffianph" opt; do
       printf "  -a  Query all packages\n"
       printf "  -n  Don't show preview window in tmux (Default)\n"
       printf "  -p  Show preview window in tmux\n"
+      printf "  -E  Don't run eix, just print the package name\n"
       printf "  -h  Show this help\n"
       printf "\n"
       exit;
@@ -94,5 +99,9 @@ else
 fi
 
 if [ -n "${package}" ]; then
-  $EIX -e "${package}"
+  if [ $runEIX -eq 1 ]; then
+    $EIX -e "${package}"
+  else
+    echo "${package}"
+  fi
 fi
