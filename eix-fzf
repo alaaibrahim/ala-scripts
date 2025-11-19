@@ -57,6 +57,20 @@ function getPackages {
   fi
 }
 
+show_help() {
+  printf "usage: %s [options]\n\n" "$0"
+  printf "  -f, --refresh         Refresh cache\n"
+  printf "  -F, --refresh-silent  Refresh cache and do not output anything (useful\n"
+  printf "                        for updating the cache in a hook or cron job)\n"
+  printf "  -i, --installed       Query only installed packages (Default)\n"
+  printf "  -a, --all             Query all packages\n"
+  printf "  -n, --no-preview      Don't show preview window (Default)\n"
+  printf "  -p, --preview         Show preview window with package details\n"
+  printf "  -E, --no-eix          Don't run eix on selection, just print package name\n"
+  printf "  -h, --help            Show this help\n"
+  printf "\n"
+}
+
 check_requirements
 
 refresh=0
@@ -67,54 +81,72 @@ EIX="eix -I"
 preview=0
 runEIX=1
 
-while getopts "FfianphE" opt; do
-  case ${opt} in
-    f)
+process_option() {
+  case "$1" in
+    f|refresh)
       refresh=1
       ;;
-    F)
+    F|refresh-silent)
       refresh=1
       nooutput=1
       ;;
-    i)
+    i|installed)
       CACHE_FILE="$CACHE_FILE_INSTALLED"
       updateGetCache=updateGetInstalledCache
       EIX="eix -I"
       ;;
-    a)
+    a|all)
       CACHE_FILE="$CACHE_FILE_ALL"
       updateGetCache=updateGetAllCache
       EIX="eix"
       ;;
-    p)
+    p|preview)
       preview=1
       ;;
-    n)
+    n|no-preview)
       preview=0
       ;;
-    E)
+    E|no-eix)
       runEIX=0
       ;;
-    h)
-      printf "usage: %s [options]\n\n" "$0"
-      printf "  -f  Refresh cache\n"
-      printf "  -F  Refresh cache and do not output anything (useful\n"
-      printf "      for updating the cache in a hook or cron job)\n"
-      printf "  -i  Query only installed packages (Default)\n"
-      printf "  -a  Query all packages\n"
-      printf "  -n  Don't show preview window (Default)\n"
-      printf "  -p  Show preview window with package details\n"
-      printf "  -E  Don't run eix on selection, just print package name\n"
-      printf "  -h  Show this help\n"
-      printf "\n"
+    h|help)
+      show_help
       exit 0
       ;;
-    * )
+    *)
+      echo "Error: Unknown option: $1" >&2
+      show_help
       exit 1
       ;;
   esac
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --*)
+      # Long option
+      process_option "${1#--}"
+      shift
+      ;;
+    -*)
+      # Short option(s) - could be bundled
+      opt="${1#-}"
+      shift
+      if [[ ${#opt} -eq 1 ]]; then
+        # Single short option
+        process_option "$opt"
+      else
+        # Bundled short options
+        for (( i=0; i<${#opt}; i++ )); do
+          process_option "${opt:$i:1}"
+        done
+      fi
+      ;;
+    *)
+      break
+      ;;
+  esac
 done
-shift $((OPTIND -1))
 
 preview_command=""
 if [ "$preview" -eq 1 ]; then
@@ -137,8 +169,8 @@ if [ -n "$preview_command" ]; then
   fzf_args+=("--preview" "$preview_command")
 fi
 
-if [ ${#} -gt 0 ]; then
-  fzf_args+=("-1" "-q" "${1}")
+if [ $# -gt 0 ]; then
+  fzf_args+=("-1" "-q" "$1")
 fi
 
 package=$(getPackages | fzf-tmux "${fzf_args[@]}")
