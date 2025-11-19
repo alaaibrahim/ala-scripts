@@ -30,7 +30,44 @@ A script to check if someone logged into the machine and removed his entry from
 `/var/run/utmp`
 
 ## IMAP/appendMessage
-a script that I use to append a message to an IMAP mailbox.
+A Python script to append a message from a file to an IMAP mailbox.
+
+### Requirements
+ * Python 3
+ * `imaplib` (standard library)
+
+### Usage
+```bash
+appendMessage -u username -s server -f file [-p password] [-m mailbox] [-n]
+```
+
+### Options
+ * `-u username` - Mail username (required)
+ * `-s server` - Mail server to connect to (required)
+ * `-f file` - File containing the message to append (required)
+ * `-p password` - Mail password (optional, will prompt securely if not provided)
+ * `-m mailbox` - Mailbox to append message to (default: INBOX)
+ * `-n` - Disable SSL/TLS (default: SSL/TLS enabled)
+
+### Features
+ * Secure password prompting if not provided via command line
+ * Uses SSL/TLS connection by default (IMAP4_SSL)
+ * Optional non-SSL connection with `-n` flag
+ * Proper error handling and resource cleanup
+ * Decodes binary IMAP responses to UTF-8
+ * Uses UTF-8 encoding for message content
+
+### Example
+```bash
+# Prompt for password securely
+appendMessage -u user@example.com -s imap.example.com -f message.txt
+
+# Append to a specific mailbox
+appendMessage -u user@example.com -s imap.example.com -f draft.eml -m Drafts
+
+# Use non-SSL connection
+appendMessage -u user@example.com -s imap.example.com -f message.txt -n
+```
 
 ## IMAP/countInbox
 A Python script to count the number of messages in an IMAP mailbox.

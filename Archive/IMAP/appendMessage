@@ -1,18 +1,20 @@
-#!/bin/env python
-import imaplib;
-import getopt;
-import sys;
+#!/usr/bin/env python3
+import imaplib
+import getopt
+import getpass
+import sys
 
 
 def main():
     try:
-        options,args = getopt.getopt(sys.argv[1:],"u:s:p:f:m:");
-    except getopt.GetoptError, err:
-        print str(err)
+        options, args = getopt.getopt(sys.argv[1:], "u:s:p:f:m:n")
+    except getopt.GetoptError as err:
+        print(str(err), file=sys.stderr)
         usage()
         sys.exit(2)
     username = password = server = filename = ""
     mailbox = "INBOX"
+    use_ssl = True
 
     for o, a in options:
         if o == "-u":
@@ -25,37 +27,80 @@ def main():
             filename = a
         elif o == "-m":
             mailbox = a
+        elif o == "-n":
+            use_ssl = False
         else:
             assert False, "Unhandled option"
-    if username == "" or password == "" or server == "" or filename == "":
+    
+    if not username or not server or not filename:
         usage()
         sys.exit(2)
-    f = open(filename,'r');
-    message = f.read()
-    f.close()
-    appendMessage(username, password, server, mailbox, message);
-
-def appendMessage(username, password, server, mailbox, message):
+    
+    # Prompt for password securely if not provided
+    if not password:
+        try:
+            password = getpass.getpass(f"Password for {username}@{server}: ")
+        except (KeyboardInterrupt, EOFError):
+            print("\nAborted.", file=sys.stderr)
+            sys.exit(1)
+        if not password:
+            print("Error: Password cannot be empty", file=sys.stderr)
+            sys.exit(2)
+    
+    # Read message from file
     try:
-        con = imaplib.IMAP4(server)
-        con.login(username,password)
-        con.append(mailbox,[],0,message)
-        con.close
-    except:
-        print "Error: ",sys.exc_info()
+        with open(filename, 'r') as f:
+            message = f.read()
+    except IOError as e:
+        print(f"Error reading file: {e}", file=sys.stderr)
         sys.exit(1)
+    
+    appendMessage(username, password, server, mailbox, message, use_ssl)
+
+def appendMessage(username, password, server, mailbox, message, use_ssl=True):
+    con = None
+    try:
+        if use_ssl:
+            con = imaplib.IMAP4_SSL(server)
+        else:
+            con = imaplib.IMAP4(server)
+        con.login(username, password)
+        con.append(mailbox, [], None, message.encode('utf-8'))
+        print(f"Message successfully appended to {mailbox}")
+    except imaplib.IMAP4.error as e:
+        # IMAP errors may contain binary data, decode if needed
+        error_msg = str(e)
+        if isinstance(e.args[0], bytes):
+            error_msg = e.args[0].decode('UTF-8', errors='replace')
+        print(f"IMAP Error: {error_msg}", file=sys.stderr)
+        sys.exit(1)
+    except OSError as e:
+        print(f"Connection Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        if con is not None:
+            try:
+                con.logout()
+            except Exception:
+                pass
 
 def usage():
     progname = sys.argv[0]
-    sys.stderr.write( "USAGE\n" +
-    progname + " -u username -p password -s server -f file [-m mailbox]\n"+
-    """
-u: mailserver username
-s: mailserver server to connect to
-f: file containing the message
-m: mailbox to put message into
+    sys.stderr.write(f"""USAGE
+{progname} -u username -s server -f file [-p password] [-m mailbox] [-n]
 
-""");
+Options:
+  -u username    Mail username (required)
+  -s server      Mail server to connect to (required)
+  -f file        File containing the message to append (required)
+  -p password    Mail password (optional, will prompt securely if not provided)
+  -m mailbox     Mailbox to append message to (default: INBOX)
+  -n             Disable SSL/TLS (default: SSL/TLS enabled)
+
+""")
 
 if __name__ == "__main__":
     main()
