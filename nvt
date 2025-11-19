@@ -1,52 +1,59 @@
 #!/usr/bin/env zsh
-function getPipe {
+getPipe() {
   local dir
+  local servername
 
-  if [ -n "$TMUX" -a -n "$TMUX_PANE" ];  then
+  if [[ -n "$TMUX" && -n "$TMUX_PANE" ]]; then
     servername="t$(tmux list-panes -t "$TMUX_PANE" -F '#S' | head -n1)"
   else
-    dir="$(git rev-parse --show-toplevel 2> /dev/null || pwd)"
-    servername="s$(echo "$dir" | sed 's@/@..@g')"
+    dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    servername="s${dir//\//__}"
   fi
 
   echo "/tmp/nvim-${servername}.pipe"
 }
 
-function getTTy {
+getTTy() {
   local pid="${1}"
 
-  if [ "$pid" = "1" ]; then
-    return
+  if [[ "$pid" == "1" ]]; then
+    return 1
   fi
 
-  local tty=$(ps -p "$pid" -o "tty" | tail -1 | sed 's@ *$@@g')
+  local tty
+  tty=$(ps -p "$pid" -o "tty" | tail -1 | sed 's@ *$@@')
 
-  if [ "$tty" = "??" -o "$tty" = "?" ]; then
-    local ppid=$(ps -p "$pid" -o "ppid" | tail -1 | sed 's@ *$@@g')
+  if [[ "$tty" == "??" || "$tty" == "?" ]]; then
+    local ppid
+    ppid=$(ps -p "$pid" -o "ppid" | tail -1 | sed 's@ *$@@')
     getTTy "$ppid"
     return
   fi
 
-  echo $tty
+  echo "$tty"
 }
 
-function goToInstance {
-  if [ -n "$TMUX" -a -n "$TMUX_PANE" ];  then
+goToInstance() {
+  if [[ -n "$TMUX" && -n "$TMUX_PANE" ]]; then
     local socket="${1}"
-    local pid="$(lsof -t "$socket" | head -1)"
-    if [ -z "$pid" ]; then
-      return
+    local pid
+    pid="$(lsof -t "$socket" 2>/dev/null | head -1)"
+    if [[ -z "$pid" ]]; then
+      return 1
     fi
 
-    local tty=$(getTTy "$pid")
+    local tty
+    tty=$(getTTy "$pid")
 
-    if [ -z "tty" ]; then
-      return
+    if [[ -z "$tty" ]]; then
+      return 1
     fi
-    local tmux_path=$(tmux list-panes -s -F'#I.#P,#{pane_tty}' | grep "$tty\$" | cut -d ',' -f1)
 
-    if [ -z "$tmux_path" ]; then
-      return
+    local tmux_path
+    tmux_path=$(tmux list-panes -s -F'#I.#P,#{pane_tty}' | grep "${tty}\$" | cut -d ',' -f1)
+
+    if [[ -z "$tmux_path" ]]; then
+      return 1
     fi
 
     tmux select-pane -t "$tmux_path" && tmux select-window -t "${tmux_path%%.*}"
@@ -56,8 +63,8 @@ function goToInstance {
 
 socket="$(getPipe)"
 
-if [ -e "$socket" ]; then
-  if [ $# -gt 0 ]; then
+if [[ -e "$socket" ]]; then
+  if [[ $# -gt 0 ]]; then
     nvim --server "$socket" --remote-silent "$@"
   else
     echo "NVIM already running on $socket"
