@@ -1,13 +1,13 @@
-#!/bin/env python
-import imaplib;
-import getopt;
-import sys;
+#!/usr/bin/env python3
+import imaplib
+import getopt
+import sys
 
 def main():
     try:
-        options,args = getopt.getopt(sys.argv[1:],'u:s:p:m:');
-    except getopt.GetoptError, err:
-        print str(err)
+        options, args = getopt.getopt(sys.argv[1:], 'u:s:p:m:')
+    except getopt.GetoptError as err:
+        print(str(err), file=sys.stderr)
         usage()
         sys.exit(2)
     username = password = server = ""
@@ -23,38 +23,53 @@ def main():
             mailbox = a
         else:
             assert False, "Unhandled option"
-    if username == "" or password == "" or server == "":
+    if not username or not password or not server:
         usage()
         sys.exit(2)
-    getInboxCount(username,server,password,mailbox)
+    getInboxCount(username, server, password, mailbox)
 
-def getInboxCount(username,server,password,mailbox):
-    fail = 0
+def getInboxCount(username, server, password, mailbox):
+    con = None
     try:
-        con = imaplib.IMAP4(server)
-        con.login(username,password)
+        con = imaplib.IMAP4_SSL(server)
+        con.login(username, password)
         res = con.select(mailbox)
-        con.close
+
         if res[0] == "OK":
-            print res[1][0]
+            print(res[1][0].decode('UTF-8'))
         else:
-            print "Error: ", res[1][0]
-            fail = 1
-    except:
-        print "Error: ",sys.exc_info()
-        fail = 1
-    if fail:
+            print(f"Error: {res[1][0].decode('UTF-8')}", file=sys.stderr)
+            sys.exit(1)
+    except imaplib.IMAP4.error as e:
+        # IMAP errors may contain binary data, decode if needed
+        error_msg = str(e)
+        if isinstance(e.args[0], bytes):
+            error_msg = e.args[0].decode('UTF-8', errors='replace')
+        print(f"IMAP Error: {error_msg}", file=sys.stderr)
         sys.exit(1)
+    except OSError as e:
+        print(f"Connection Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        if con is not None:
+            try:
+                con.logout()
+            except Exception:
+                pass
 
 def usage():
     progname = sys.argv[0]
-    sys.stderr.write( "USAGE\n" +
-    progname + " -u username -p password -s server [-m mailbox]\n" +
-    """
-u: mail username
-s: mail server to connect to
-p: mail password
-m: mailbox to read the count of messages
+    sys.stderr.write(f"""USAGE
+{progname} -u username -p password -s server [-m mailbox]
+
+Options:
+  -u username    Mail username
+  -s server      Mail server to connect to
+  -p password    Mail password
+  -m mailbox     Mailbox to read the count of messages (default: INBOX)
 
 """)
 
