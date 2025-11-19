@@ -41,7 +41,7 @@ A Python script to count the number of messages in an IMAP mailbox.
 
 ### Usage
 ```bash
-countInbox -u username -s server [-p password] [-m mailbox]
+countInbox -u username -s server [-p password] [-m mailbox] [-n]
 ```
 
 ### Options
@@ -49,10 +49,12 @@ countInbox -u username -s server [-p password] [-m mailbox]
  * `-s server` - Mail server to connect to (required)
  * `-p password` - Mail password (optional, will prompt securely if not provided)
  * `-m mailbox` - Mailbox to read the count of messages (default: INBOX)
+ * `-n` - Disable SSL/TLS (default: SSL/TLS enabled)
 
 ### Features
  * Secure password prompting if not provided via command line
- * Uses SSL/TLS connection (IMAP4_SSL)
+ * Uses SSL/TLS connection by default (IMAP4_SSL)
+ * Optional non-SSL connection with `-n` flag
  * Proper error handling and resource cleanup
  * Decodes binary IMAP responses to UTF-8
 

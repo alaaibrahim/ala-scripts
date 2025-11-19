@@ -6,13 +6,14 @@ import sys
 
 def main():
     try:
-        options, args = getopt.getopt(sys.argv[1:], 'u:s:p:m:')
+        options, args = getopt.getopt(sys.argv[1:], 'u:s:p:m:n')
     except getopt.GetoptError as err:
         print(str(err), file=sys.stderr)
         usage()
         sys.exit(2)
     username = password = server = ""
     mailbox = "INBOX"
+    use_ssl = True
     for o, a in options:
         if o == "-u":
             username = a
@@ -22,6 +23,8 @@ def main():
             password = a
         elif o == "-m":
             mailbox = a
+        elif o == "-n":
+            use_ssl = False
         else:
             assert False, "Unhandled option"
     
@@ -40,12 +43,15 @@ def main():
             print("Error: Password cannot be empty", file=sys.stderr)
             sys.exit(2)
     
-    getInboxCount(username, server, password, mailbox)
+    getInboxCount(username, server, password, mailbox, use_ssl)
 
-def getInboxCount(username, server, password, mailbox):
+def getInboxCount(username, server, password, mailbox, use_ssl=True):
     con = None
     try:
-        con = imaplib.IMAP4_SSL(server)
+        if use_ssl:
+            con = imaplib.IMAP4_SSL(server)
+        else:
+            con = imaplib.IMAP4(server)
         con.login(username, password)
         res = con.select(mailbox)
 
@@ -77,13 +83,14 @@ def getInboxCount(username, server, password, mailbox):
 def usage():
     progname = sys.argv[0]
     sys.stderr.write(f"""USAGE
-{progname} -u username -s server [-p password] [-m mailbox]
+{progname} -u username -s server [-p password] [-m mailbox] [-n]
 
 Options:
   -u username    Mail username (required)
   -s server      Mail server to connect to (required)
   -p password    Mail password (optional, will prompt securely if not provided)
   -m mailbox     Mailbox to read the count of messages (default: INBOX)
+  -n             Disable SSL/TLS (default: SSL/TLS enabled)
 
 """)
 
