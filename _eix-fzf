@@ -1,0 +1,20 @@
+#compdef eix-fzf
+
+_eix-fzf() {
+  local -a opts
+  opts=(
+    '(- *)'{-h,--help}'[Show help message]'
+    '(-F --refresh-silent)'{-f,--refresh}'[Refresh cache]'
+    '(-f --refresh)'{-F,--refresh-silent}'[Refresh cache silently (no output)]'
+    '(-a --all)'{-i,--installed}'[Query only installed packages (default)]'
+    '(-i --installed)'{-a,--all}'[Query all packages]'
+    '(-n --no-preview)'{-p,--preview}'[Show preview window with package details]'
+    '(-p --preview)'{-n,--no-preview}'[Don'\''t show preview window (default)]'
+    '(-E --no-eix)'{-E,--no-eix}'[Don'\''t run eix on selection, just print package name]'
+    '1:prefilled fzf query:_guard "^-*" "search query (optional)"'
+  )
+  
+  _arguments -s -S $opts
+}
+
+_eix-fzf "$@"

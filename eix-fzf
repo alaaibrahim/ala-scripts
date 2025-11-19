@@ -58,7 +58,8 @@ function getPackages {
 }
 
 show_help() {
-  printf "usage: %s [options]\n\n" "$0"
+  printf "usage: %s [options] [query]\n\n" "$0"
+  printf "Options:\n"
   printf "  -f, --refresh         Refresh cache\n"
   printf "  -F, --refresh-silent  Refresh cache and do not output anything (useful\n"
   printf "                        for updating the cache in a hook or cron job)\n"
@@ -68,6 +69,9 @@ show_help() {
   printf "  -p, --preview         Show preview window with package details\n"
   printf "  -E, --no-eix          Don't run eix on selection, just print package name\n"
   printf "  -h, --help            Show this help\n"
+  printf "\n"
+  printf "Arguments:\n"
+  printf "  query                 Prefilled search query for fzf (optional)\n"
   printf "\n"
 }
 
