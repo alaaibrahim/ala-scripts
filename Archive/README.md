@@ -33,5 +33,38 @@ A script to check if someone logged into the machine and removed his entry from
 a script that I use to append a message to an IMAP mailbox.
 
 ## IMAP/countInbox
-a script to count the number of messages in an IMAP mailbox.
+A Python script to count the number of messages in an IMAP mailbox.
+
+### Requirements
+ * Python 3
+ * `imaplib` (standard library)
+
+### Usage
+```bash
+countInbox -u username -s server [-p password] [-m mailbox]
+```
+
+### Options
+ * `-u username` - Mail username (required)
+ * `-s server` - Mail server to connect to (required)
+ * `-p password` - Mail password (optional, will prompt securely if not provided)
+ * `-m mailbox` - Mailbox to read the count of messages (default: INBOX)
+
+### Features
+ * Secure password prompting if not provided via command line
+ * Uses SSL/TLS connection (IMAP4_SSL)
+ * Proper error handling and resource cleanup
+ * Decodes binary IMAP responses to UTF-8
+
+### Example
+```bash
+# Prompt for password securely
+countInbox -u user@example.com -s imap.example.com
+
+# Specify password on command line (less secure)
+countInbox -u user@example.com -s imap.example.com -p mypassword
+
+# Check a specific mailbox
+countInbox -u user@example.com -s imap.example.com -m "Sent Items"
+```
 
