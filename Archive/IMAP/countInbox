@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import imaplib
 import getopt
+import getpass
 import sys
 
 def main():
@@ -23,9 +24,22 @@ def main():
             mailbox = a
         else:
             assert False, "Unhandled option"
-    if not username or not password or not server:
+    
+    if not username or not server:
         usage()
         sys.exit(2)
+    
+    # Prompt for password securely if not provided
+    if not password:
+        try:
+            password = getpass.getpass(f"Password for {username}@{server}: ")
+        except (KeyboardInterrupt, EOFError):
+            print("\nAborted.", file=sys.stderr)
+            sys.exit(1)
+        if not password:
+            print("Error: Password cannot be empty", file=sys.stderr)
+            sys.exit(2)
+    
     getInboxCount(username, server, password, mailbox)
 
 def getInboxCount(username, server, password, mailbox):
@@ -63,12 +77,12 @@ def getInboxCount(username, server, password, mailbox):
 def usage():
     progname = sys.argv[0]
     sys.stderr.write(f"""USAGE
-{progname} -u username -p password -s server [-m mailbox]
+{progname} -u username -s server [-p password] [-m mailbox]
 
 Options:
-  -u username    Mail username
-  -s server      Mail server to connect to
-  -p password    Mail password
+  -u username    Mail username (required)
+  -s server      Mail server to connect to (required)
+  -p password    Mail password (optional, will prompt securely if not provided)
   -m mailbox     Mailbox to read the count of messages (default: INBOX)
 
 """)
