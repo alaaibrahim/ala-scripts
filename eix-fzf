@@ -1,28 +1,72 @@
 #!/bin/bash
+set -e
+
 CACHE_FILE_INSTALLED=/tmp/eix-installed
 CACHE_FILE_ALL=/tmp/eix-all
 
+check_requirements() {
+  local missing=0
+  for cmd in eix equery fzf-tmux; do
+    if ! command -v "$cmd" &> /dev/null; then
+      echo "Error: Required command '$cmd' not found" >&2
+      missing=1
+    fi
+  done
+  if [ $missing -eq 1 ]; then
+    exit 1
+  fi
+}
+
 function updateGetAllCache {
+  local silent=${1:-0}
   # shellcheck disable=SC2016
-  equery list -o -p -F '$cp' "*" | uniq | tee >(sort > $CACHE_FILE_ALL)
+  if [ "$silent" -eq 1 ]; then
+    equery list -o -p -F '$cp' "*" 2>/dev/null | uniq | sort > "$CACHE_FILE_ALL" || {
+      echo "Error: Failed to update package cache" >&2
+      return 1
+    }
+  else
+    equery list -o -p -F '$cp' "*" 2>/dev/null | uniq | tee >(sort > "$CACHE_FILE_ALL") || {
+      echo "Error: Failed to update package cache" >&2
+      return 1
+    }
+  fi
 }
 
 function updateGetInstalledCache {
+  local silent=${1:-0}
   # shellcheck disable=SC2016
-  equery list -F '$cp' "*" | uniq | tee >(sort > $CACHE_FILE_INSTALLED)
+  if [ "$silent" -eq 1 ]; then
+    equery list -F '$cp' "*" 2>/dev/null | uniq | sort > "$CACHE_FILE_INSTALLED" || {
+      echo "Error: Failed to update installed package cache" >&2
+      return 1
+    }
+  else
+    equery list -F '$cp' "*" 2>/dev/null | uniq | tee >(sort > "$CACHE_FILE_INSTALLED") || {
+      echo "Error: Failed to update installed package cache" >&2
+      return 1
+    }
+  fi
 }
 
 function getPackages {
-  cat "$CACHE_FILE"
+  if [ ! -f "$CACHE_FILE" ]; then
+    $updateGetCache 0
+  else
+    cat "$CACHE_FILE"
+  fi
 }
+
+check_requirements
 
 refresh=0
 nooutput=0
-CACHE_FILE=$CACHE_FILE_INSTALLED
+CACHE_FILE="$CACHE_FILE_INSTALLED"
 updateGetCache=updateGetInstalledCache
 EIX="eix -I"
 preview=0
 runEIX=1
+
 while getopts "FfianphE" opt; do
   case ${opt} in
     f)
@@ -33,12 +77,12 @@ while getopts "FfianphE" opt; do
       nooutput=1
       ;;
     i)
-      CACHE_FILE=$CACHE_FILE_INSTALLED
+      CACHE_FILE="$CACHE_FILE_INSTALLED"
       updateGetCache=updateGetInstalledCache
       EIX="eix -I"
       ;;
     a)
-      CACHE_FILE=$CACHE_FILE_ALL
+      CACHE_FILE="$CACHE_FILE_ALL"
       updateGetCache=updateGetAllCache
       EIX="eix"
       ;;
@@ -53,53 +97,54 @@ while getopts "FfianphE" opt; do
       ;;
     h)
       printf "usage: %s [options]\n\n" "$0"
-      printf "  -f  Refresh Cache\n"
-      printf "  -F  Refresh Cache and do not output anything (Good \n"
-      printf "      for updating the cache in a hook, or a cron)\n"
+      printf "  -f  Refresh cache\n"
+      printf "  -F  Refresh cache and do not output anything (useful\n"
+      printf "      for updating the cache in a hook or cron job)\n"
       printf "  -i  Query only installed packages (Default)\n"
       printf "  -a  Query all packages\n"
-      printf "  -n  Don't show preview window in tmux (Default)\n"
-      printf "  -p  Show preview window in tmux\n"
-      printf "  -E  Don't run eix, just print the package name\n"
+      printf "  -n  Don't show preview window (Default)\n"
+      printf "  -p  Show preview window with package details\n"
+      printf "  -E  Don't run eix on selection, just print package name\n"
       printf "  -h  Show this help\n"
       printf "\n"
-      exit;
+      exit 0
       ;;
     * )
+      exit 1
       ;;
   esac
 done
 shift $((OPTIND -1))
 
 preview_command=""
-
-if [ $preview -eq 1 ]; then
-  # shellcheck disable=SC2089
+if [ "$preview" -eq 1 ]; then
   preview_command="$EIX -F {}"
 fi
 
-if [ ! -f $CACHE_FILE ]; then
-  refresh=1
+if [ "$nooutput" -eq 1 ]; then
+  if [ "$refresh" -eq 1 ]; then
+    $updateGetCache 1
+  fi
+  exit 0
 fi
 
-packagesCall=getPackages
-if [ $refresh -eq 1 ]; then
-  packagesCall=$updateGetCache
+if [ "$refresh" -eq 1 ]; then
+  rm -f "$CACHE_FILE"
 fi
 
-if [ $nooutput -eq 1 ]; then
-  $packagesCall > /dev/null
-  exit $?
+fzf_args=("+s")
+if [ -n "$preview_command" ]; then
+  fzf_args+=("--preview" "$preview_command")
 fi
 
 if [ ${#} -gt 0 ]; then
-  package=$($packagesCall | fzf-tmux +s --preview "$preview_command" -1 -q "${1}")
-else
-  package=$($packagesCall | fzf-tmux +s --preview "$preview_command")
+  fzf_args+=("-1" "-q" "${1}")
 fi
 
+package=$(getPackages | fzf-tmux "${fzf_args[@]}")
+
 if [ -n "${package}" ]; then
-  if [ $runEIX -eq 1 ]; then
+  if [ "$runEIX" -eq 1 ]; then
     $EIX -e "${package}"
   else
     echo "${package}"
