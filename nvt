@@ -65,7 +65,24 @@ socket="$(getPipe)"
 
 if [[ -e "$socket" ]]; then
   if [[ $# -gt 0 ]]; then
-    nvim --server "$socket" --remote-silent "$@"
+    # Convert relative paths to absolute paths
+    local -a abs_paths
+    for arg in "$@"; do
+      if [[ -e "$arg" ]]; then
+        # If file/directory exists, get absolute path
+        abs_paths+=("$(realpath "$arg")")
+      else
+        # If doesn't exist yet (new file), resolve relative to current dir
+        if [[ "$arg" = /* ]]; then
+          # Already absolute
+          abs_paths+=("$arg")
+        else
+          # Make it absolute
+          abs_paths+=("$PWD/$arg")
+        fi
+      fi
+    done
+    nvim --server "$socket" --remote-silent "${abs_paths[@]}"
   else
     echo "NVIM already running on $socket"
   fi
