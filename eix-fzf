@@ -17,33 +17,33 @@ check_requirements() {
   fi
 }
 
-update_get_all_cache() {
-  local silent=${1:-0}
-  # shellcheck disable=SC2016
-  if [ "$silent" -eq 1 ]; then
-    equery list -o -p -F '$cp' "*" 2>/dev/null | uniq | sort > "$CACHE_FILE_ALL" || {
-      echo "Error: Failed to update package cache" >&2
-      return 1
-    }
-  else
-    equery list -o -p -F '$cp' "*" 2>/dev/null | uniq | tee >(sort > "$CACHE_FILE_ALL") || {
-      echo "Error: Failed to update package cache" >&2
-      return 1
-    }
-  fi
-}
+update_cache() {
+  local cache_type=${1}
+  local silent=${2:-0}
 
-update_get_installed_cache() {
-  local silent=${1:-0}
+  local cache_file
+  local equery_opts
+  local error_msg
+
+  if [ "$cache_type" = "all" ]; then
+    cache_file="$CACHE_FILE_ALL"
+    equery_opts="-o -p"
+    error_msg="Error: Failed to update package cache"
+  else
+    cache_file="$CACHE_FILE_INSTALLED"
+    equery_opts=""
+    error_msg="Error: Failed to update installed package cache"
+  fi
+
   # shellcheck disable=SC2016
   if [ "$silent" -eq 1 ]; then
-    equery list -F '$cp' "*" 2>/dev/null | uniq | sort > "$CACHE_FILE_INSTALLED" || {
-      echo "Error: Failed to update installed package cache" >&2
+    equery list $equery_opts -F '$cp' '*' 2>/dev/null | uniq | sort > "$cache_file" || {
+      echo "$error_msg" >&2
       return 1
     }
   else
-    equery list -F '$cp' "*" 2>/dev/null | uniq | tee >(sort > "$CACHE_FILE_INSTALLED") || {
-      echo "Error: Failed to update installed package cache" >&2
+    equery list $equery_opts -F '$cp' '*' 2>/dev/null | uniq | tee >(sort > "$cache_file") || {
+      echo "$error_msg" >&2
       return 1
     }
   fi
@@ -51,7 +51,7 @@ update_get_installed_cache() {
 
 get_packages() {
   if [ ! -f "$CACHE_FILE" ]; then
-    $update_get_cache 0
+    update_cache "$cache_type" 0
   else
     cat "$CACHE_FILE"
   fi
@@ -80,7 +80,7 @@ check_requirements
 refresh=0
 nooutput=0
 CACHE_FILE="$CACHE_FILE_INSTALLED"
-update_get_cache=update_get_installed_cache
+cache_type="installed"
 EIX="eix -I"
 preview=0
 run_eix=1
@@ -96,12 +96,12 @@ process_option() {
       ;;
     i|installed)
       CACHE_FILE="$CACHE_FILE_INSTALLED"
-      update_get_cache=update_get_installed_cache
+      cache_type="installed"
       EIX="eix -I"
       ;;
     a|all)
       CACHE_FILE="$CACHE_FILE_ALL"
-      update_get_cache=update_get_all_cache
+      cache_type="all"
       EIX="eix"
       ;;
     p|preview)
@@ -159,7 +159,7 @@ fi
 
 if [ "$nooutput" -eq 1 ]; then
   if [ "$refresh" -eq 1 ]; then
-    $update_get_cache 1
+    update_cache "$cache_type" 1
   fi
   exit 0
 fi
