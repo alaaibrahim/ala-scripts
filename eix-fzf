@@ -17,7 +17,7 @@ check_requirements() {
   fi
 }
 
-function updateGetAllCache {
+update_get_all_cache() {
   local silent=${1:-0}
   # shellcheck disable=SC2016
   if [ "$silent" -eq 1 ]; then
@@ -33,7 +33,7 @@ function updateGetAllCache {
   fi
 }
 
-function updateGetInstalledCache {
+update_get_installed_cache() {
   local silent=${1:-0}
   # shellcheck disable=SC2016
   if [ "$silent" -eq 1 ]; then
@@ -49,9 +49,9 @@ function updateGetInstalledCache {
   fi
 }
 
-function getPackages {
+get_packages() {
   if [ ! -f "$CACHE_FILE" ]; then
-    $updateGetCache 0
+    $update_get_cache 0
   else
     cat "$CACHE_FILE"
   fi
@@ -80,10 +80,10 @@ check_requirements
 refresh=0
 nooutput=0
 CACHE_FILE="$CACHE_FILE_INSTALLED"
-updateGetCache=updateGetInstalledCache
+update_get_cache=update_get_installed_cache
 EIX="eix -I"
 preview=0
-runEIX=1
+run_eix=1
 
 process_option() {
   case "$1" in
@@ -96,12 +96,12 @@ process_option() {
       ;;
     i|installed)
       CACHE_FILE="$CACHE_FILE_INSTALLED"
-      updateGetCache=updateGetInstalledCache
+      update_get_cache=update_get_installed_cache
       EIX="eix -I"
       ;;
     a|all)
       CACHE_FILE="$CACHE_FILE_ALL"
-      updateGetCache=updateGetAllCache
+      update_get_cache=update_get_all_cache
       EIX="eix"
       ;;
     p|preview)
@@ -111,7 +111,7 @@ process_option() {
       preview=0
       ;;
     E|no-eix)
-      runEIX=0
+      run_eix=0
       ;;
     h|help)
       show_help
@@ -159,7 +159,7 @@ fi
 
 if [ "$nooutput" -eq 1 ]; then
   if [ "$refresh" -eq 1 ]; then
-    $updateGetCache 1
+    $update_get_cache 1
   fi
   exit 0
 fi
@@ -177,10 +177,10 @@ if [ $# -gt 0 ]; then
   fzf_args+=("-1" "-q" "$1")
 fi
 
-package=$(getPackages | fzf-tmux "${fzf_args[@]}")
+package=$(get_packages | fzf-tmux "${fzf_args[@]}")
 
 if [ -n "${package}" ]; then
-  if [ "$runEIX" -eq 1 ]; then
+  if [ "$run_eix" -eq 1 ]; then
     $EIX -e "${package}"
   else
     echo "${package}"
