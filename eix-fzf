@@ -1,8 +1,8 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-CACHE_FILE_INSTALLED=/tmp/eix-installed
-CACHE_FILE_ALL=/tmp/eix-all
+readonly CACHE_FILE_INSTALLED=/tmp/eix-installed
+readonly CACHE_FILE_ALL=/tmp/eix-all
 
 check_requirements() {
   local missing=0
@@ -22,27 +22,28 @@ update_cache() {
   local silent=${2:-0}
 
   local cache_file
-  local equery_opts
+  local equery_cmd
   local error_msg
 
+  equery_cmd=(equery list)
+  
   if [ "$cache_type" = "all" ]; then
     cache_file="$CACHE_FILE_ALL"
-    equery_opts="-o -p"
+    equery_cmd+=(-o -p)
     error_msg="Error: Failed to update package cache"
   else
     cache_file="$CACHE_FILE_INSTALLED"
-    equery_opts=""
     error_msg="Error: Failed to update installed package cache"
   fi
 
   # shellcheck disable=SC2016
   if [ "$silent" -eq 1 ]; then
-    equery list $equery_opts -F '$cp' '*' 2>/dev/null | uniq | sort > "$cache_file" || {
+    "${equery_cmd[@]}" -F '$cp' '*' 2>/dev/null | uniq | sort > "$cache_file" || {
       echo "$error_msg" >&2
       return 1
     }
   else
-    equery list $equery_opts -F '$cp' '*' 2>/dev/null | uniq | tee >(sort > "$cache_file") || {
+    "${equery_cmd[@]}" -F '$cp' '*' 2>/dev/null | uniq | tee >(sort > "$cache_file") || {
       echo "$error_msg" >&2
       return 1
     }
@@ -75,13 +76,23 @@ show_help() {
   printf "\n"
 }
 
+set_cache_mode() {
+  local mode=$1
+  cache_type="$mode"
+  if [ "$mode" = "all" ]; then
+    CACHE_FILE="$CACHE_FILE_ALL"
+    eix_command=(eix)
+  else
+    CACHE_FILE="$CACHE_FILE_INSTALLED"
+    eix_command=(eix -I)
+  fi
+}
+
 check_requirements
 
 refresh=0
-nooutput=0
-CACHE_FILE="$CACHE_FILE_INSTALLED"
-cache_type="installed"
-EIX="eix -I"
+silent_refresh=0
+set_cache_mode "installed"
 preview=0
 run_eix=1
 
@@ -92,17 +103,13 @@ process_option() {
       ;;
     F|refresh-silent)
       refresh=1
-      nooutput=1
+      silent_refresh=1
       ;;
     i|installed)
-      CACHE_FILE="$CACHE_FILE_INSTALLED"
-      cache_type="installed"
-      EIX="eix -I"
+      set_cache_mode "installed"
       ;;
     a|all)
-      CACHE_FILE="$CACHE_FILE_ALL"
-      cache_type="all"
-      EIX="eix"
+      set_cache_mode "all"
       ;;
     p|preview)
       preview=1
@@ -154,10 +161,10 @@ done
 
 preview_command=""
 if [ "$preview" -eq 1 ]; then
-  preview_command="$EIX -F {}"
+  preview_command="${eix_command[*]} -F {}"
 fi
 
-if [ "$nooutput" -eq 1 ]; then
+if [ "$silent_refresh" -eq 1 ]; then
   if [ "$refresh" -eq 1 ]; then
     update_cache "$cache_type" 1
   fi
@@ -181,7 +188,7 @@ package=$(get_packages | fzf-tmux "${fzf_args[@]}")
 
 if [ -n "${package}" ]; then
   if [ "$run_eix" -eq 1 ]; then
-    $EIX -e "${package}"
+    "${eix_command[@]}" -e "${package}"
   else
     echo "${package}"
   fi
