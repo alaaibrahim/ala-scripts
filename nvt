@@ -1,11 +1,18 @@
 #!/usr/bin/env zsh
-setopt errexit nounset pipefail
+setopt errexit nounset pipefail extendedglob
 
 readonly SOCKET_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+readonly MAX_TTY_DEPTH=20
 
 check_requirements() {
   local missing=0
-  for cmd in nvim lsof; do
+  local required_cmds=(nvim lsof)
+  
+  if [[ -n "$TMUX" ]]; then
+    required_cmds+=(tmux)
+  fi
+  
+  for cmd in "${required_cmds[@]}"; do
     if ! command -v "$cmd" &> /dev/null; then
       echo "Error: Required command '$cmd' not found" >&2
       missing=1
@@ -33,18 +40,26 @@ get_pipe() {
 get_tty() {
   local pid="${1}"
   local depth="${2:-0}"
-  local max_depth=20
 
-  if [[ "$pid" == "1" ]] || [[ $depth -ge $max_depth ]]; then
+  if [[ "$pid" == "1" ]] || [[ $depth -ge $MAX_TTY_DEPTH ]]; then
     return 1
   fi
 
   local tty
-  tty=$(ps -p "$pid" -o "tty" | tail -1 | sed 's@ *$@@')
+  if ! tty=$(ps -p "$pid" -o "tty" 2>/dev/null | tail -1); then
+    return 1
+  fi
+
+  tty="${tty## #}"
+  tty="${tty%% #}"
 
   if [[ "$tty" == "??" || "$tty" == "?" ]]; then
     local ppid
-    ppid=$(ps -p "$pid" -o "ppid" | tail -1 | sed 's@ *$@@')
+    if ! ppid=$(ps -p "$pid" -o "ppid" 2>/dev/null | tail -1); then
+      return 1
+    fi
+    ppid="${ppid## #}"
+    ppid="${ppid%% #}"
     get_tty "$ppid" $((depth + 1))
     return
   fi
@@ -58,25 +73,35 @@ go_to_instance() {
     local pid
     pid="$(lsof -t "$socket" 2>/dev/null | head -1)"
     if [[ -z "$pid" ]]; then
-      return 1
+      return 0
     fi
 
     local tty
-    tty=$(get_tty "$pid")
+    if ! tty=$(get_tty "$pid" 2>/dev/null); then
+      return 0
+    fi
 
     if [[ -z "$tty" ]]; then
-      return 1
+      return 0
     fi
 
     local tmux_path
-    tmux_path=$(tmux list-panes -s -F'#I.#P,#{pane_tty}' | grep "${tty}\$" | cut -d ',' -f1)
-
-    if [[ -z "$tmux_path" ]]; then
-      return 1
+    if ! tmux_path=$(tmux list-panes -s -F'#I.#P,#{pane_tty}' 2>/dev/null | grep "${tty}\$" | cut -d ',' -f1); then
+      return 0
     fi
 
-    tmux select-pane -t "$tmux_path" && tmux select-window -t "${tmux_path%%.*}"
+    if [[ -z "$tmux_path" ]]; then
+      return 0
+    fi
+
+    tmux select-pane -t "$tmux_path" 2>/dev/null && tmux select-window -t "${tmux_path%%.*}" 2>/dev/null
   fi
+  return 0
+}
+
+make_absolute() {
+  local path="$1"
+  [[ "$path" = /* ]] && echo "$path" || echo "$PWD/$path"
 }
 
 resolve_absolute_path() {
@@ -84,13 +109,25 @@ resolve_absolute_path() {
   local result
 
   if [[ -e "$path" ]]; then
-    if result=$(realpath "$path" 2>/dev/null); then
+    if result=$(realpath -s "$path" 2>/dev/null); then
       echo "$result"
     else
-      [[ "$path" = /* ]] && echo "$path" || echo "$PWD/$path"
+      make_absolute "$path"
     fi
   else
-    [[ "$path" = /* ]] && echo "$path" || echo "$PWD/$path"
+    make_absolute "$path"
+  fi
+}
+
+is_socket_alive() {
+  local socket="$1"
+  [[ -e "$socket" ]] && lsof -t "$socket" &>/dev/null
+}
+
+cleanup() {
+  local exit_code=$?
+  if [[ $exit_code -ne 0 ]] && [[ -e "$socket" ]] && ! is_socket_alive "$socket"; then
+    rm -f "$socket" 2>/dev/null
   fi
 }
 
@@ -98,18 +135,29 @@ check_requirements
 
 readonly socket="$(get_pipe)"
 
-if [[ -e "$socket" ]]; then
+trap cleanup EXIT INT TERM
+
+if is_socket_alive "$socket"; then
   if [[ $# -gt 0 ]]; then
     typeset -a abs_paths
     for arg in "$@"; do
       abs_paths+=("$(resolve_absolute_path "$arg")")
     done
-    nvim --server "$socket" --remote-silent "${abs_paths[@]}"
+
+    if ! nvim --server "$socket" --remote-silent "${abs_paths[@]}" 2>/dev/null; then
+      echo "Error: Failed to send files to nvim server" >&2
+      exit 1
+    fi
   else
     echo "NVIM already running on $socket"
+    echo "Usage: $0 <file1> [file2 ...]"
   fi
 
   go_to_instance "$socket"
+elif [[ -e "$socket" ]]; then
+  echo "Warning: Stale socket found at $socket, removing it" >&2
+  rm -f "$socket"
+  nvim --listen "$socket" "$@"
 else
   nvim --listen "$socket" "$@"
 fi
