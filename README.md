@@ -78,3 +78,40 @@ Bash and Zsh completion files are included:
  * Bash: `eix-fzf-completion.bash`
  * Zsh: `_eix-fzf`
 
+## uncrypt
+A script to securely create, view, and edit encrypted GPG tar archives. It works
+by creating a temporary, encrypted, in-memory filesystem (a "vault") where the
+contents of the GPG tar archive are extracted. After you're done, the script
+re-encrypts the contents and cleans up the temporary vault, leaving no trace on
+the disk.
+
+It uses `hdiutil` on macOS to create a sparse bundle and `gocryptfs` on
+Linux/BSD to create an encrypted directory, providing a seamless and
+cross-platform experience.
+
+### Requirements
+ * `gpg`
+ * `gocryptfs` (for Linux/BSD systems)
+
+### Usage
+```bash
+uncrypt [-r recipient]... <gpg-file>
+```
+ * `<gpg-file>`: The path to the GPG-encrypted tar archive.
+ * `-r recipient`: Optional. Specify a GPG recipient for encryption. This flag can be used multiple times.
+
+### Workflow
+The script operates in one of two modes:
+1.  **Recipient Mode**: If you provide one or more `-r` flags, the archive will
+    be encrypted for those recipients and signed.
+2.  **Passphrase Mode**: If no recipients are provided, the script will use
+    symmetric encryption (`gpg -c`). You will be prompted for a passphrase to
+    encrypt and decrypt the archive.
+
+Once the vault is mounted, you can access the files inside the temporary
+directory shown in the script's output. When you are finished, you can choose
+one of the following options:
+ * `(s)ave & encrypt`: Re-packages the contents of the vault, encrypts them, and
+   saves them back to the original GPG file.
+ * `(d)estroy & exit`: Discards all changes and tears down the temporary vault.
+

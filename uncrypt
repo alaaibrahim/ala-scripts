@@ -1,0 +1,178 @@
+#!/bin/bash
+set -eo pipefail
+
+# --- Dependency Checks ---
+if ! command -v gpg &> /dev/null;
+    then
+    echo "Error: gpg is not installed. Please install it to continue." >&2
+    exit 1
+fi
+
+OS_TYPE="$(uname -s)"
+FUSERMOUNT="$(command -v fusermount || command -v fusermount3 || echo "")"
+if [ "$OS_TYPE" != "Darwin" ]; then
+    if ! command -v gocryptfs &> /dev/null; then
+        echo "Error: gocryptfs is not installed. Please install it for Linux/BSD." >&2
+        exit 1
+    fi
+
+    if [ -z "$FUSERMOUNT" ]; then
+        echo "Error: fusermount is not installed. Please install it for Linux/BSD." >&2
+        exit 1
+    fi
+fi
+
+# --- Argument Parsing ---
+usage() {
+    echo "Usage: $0 [-r recipient]... <gpg-file>"
+    echo "  -r recipient: Add a GPG recipient. Can be used multiple times."
+    echo "  -h, --help:   Show this help message."
+    echo ""
+    echo "If no recipients are provided, the script uses symmetric encryption with a passphrase."
+    exit 1
+}
+
+GPG_RECIPIENTS_OPTS=()
+GPG_FILE=""
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -r)
+            if [ -n "$2" ]; then
+                GPG_RECIPIENTS_OPTS+=("-r" "$2")
+                shift 2
+            else
+                echo "Error: -r requires a recipient." >&2; usage
+            fi
+            ;;
+        -h|--help)
+            usage
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2; usage
+            ;;
+        *)
+            if [ -z "$GPG_FILE" ]; then
+                GPG_FILE="$1"
+                shift
+            else
+                echo "Error: Only one GPG file can be specified." >&2; usage
+            fi
+            ;;
+    esac
+done
+
+if [ -z "$GPG_FILE" ]; then
+    echo "Error: GPG file not specified." >&2; usage
+fi
+
+# --- Configuration ---
+MAX_SIZE=${MAX_SIZE:-"2g"}
+
+# Detect OS and generate internal password for the ephemeral layer
+INTERNAL_PASS=$(head -c 64 /dev/urandom | base64)
+
+# Setup paths based on OS using secure temp directories
+if [ "$OS_TYPE" == "Darwin" ]; then
+    BUNDLE_PATH="$(mktemp -d)/vault.sparsebundle"
+else
+    CIPHER_DIR="$(mktemp -d /tmp/vault.XXXXXXXXXX)"
+fi
+
+MOUNT_ROOT="$(mktemp -d /tmp/plain.XXXXXXXXXX)"
+
+# --- Cleanup Function ---
+cleanup() {
+    local status="${1:-0}"
+    echo -e "\n\n[!] Tearing down secure environment..."
+    if [ "$OS_TYPE" == "Darwin" ]; then
+        mount | grep -q "$MOUNT_ROOT" && hdiutil detach "$MOUNT_ROOT" -force -quiet
+        rm -rf "$(dirname "$BUNDLE_PATH")"
+    else
+        mountpoint -q "$MOUNT_ROOT" && $FUSERMOUNT -u "$MOUNT_ROOT"
+        rm -rf "$CIPHER_DIR"
+    fi
+    rm -rf "$MOUNT_ROOT"
+    unset INTERNAL_PASS
+    exit "$status"
+}
+
+trap 'cleanup 130' SIGINT
+trap 'cleanup 143' SIGTERM
+trap 'cleanup 1' ERR
+
+
+# --- OS-Specific Initialization ---
+mkdir -p "$MOUNT_ROOT"
+
+if [ "$OS_TYPE" == "Darwin" ]; then
+    echo -n "$INTERNAL_PASS" | hdiutil create -size "$MAX_SIZE" -type SPARSEBUNDLE -fs "APFS" \
+        -volname "vault" -encryption AES-256 -stdinpass "$BUNDLE_PATH" -quiet || { echo "Failed to create sparse bundle" >&2; exit 1; }
+    echo -n "$INTERNAL_PASS" | hdiutil attach "$BUNDLE_PATH" -stdinpass -mountpoint "$MOUNT_ROOT" -nobrowse -quiet || { echo "Failed to attach sparse bundle" >&2; exit 1; }
+else
+    mkdir -p "$CIPHER_DIR"
+
+    echo "$INTERNAL_PASS" | gocryptfs -init -quiet "$CIPHER_DIR" || { echo "Failed to initialize gocryptfs" >&2; exit 1; }
+    echo "$INTERNAL_PASS" | gocryptfs -quiet "$CIPHER_DIR" "$MOUNT_ROOT" || { echo "Failed to mount gocryptfs" >&2; exit 1; }
+fi
+
+# --- Data Handling ---
+if [ -f "$GPG_FILE" ]; then
+    echo "Decrypting and verifying $GPG_FILE..."
+    if ! gpg --quiet -d "$GPG_FILE" | tar -x -C "$MOUNT_ROOT"; then
+        echo "Error: Failed to decrypt and extract $GPG_FILE. Check GPG setup and file integrity." >&2
+        cleanup 1
+    fi
+fi
+
+# --- Interaction ---
+echo "----------------------------------------------------"
+echo "Vault mounted at: $MOUNT_ROOT"
+if [ ${#GPG_RECIPIENTS_OPTS[@]} -gt 0 ]; then
+    echo "Mode: Encrypting for recipients"
+    echo "Recipients: ${GPG_RECIPIENTS_OPTS[*]}"
+else
+    echo "Mode: Symmetric encryption (passphrase)"
+fi
+echo "----------------------------------------------------"
+
+while true; do
+    read -r -p "Choose: (s)ave & encrypt, (d)estroy & exit: " choice
+    case "$choice" in
+        [Ss]* ) 
+            if [ -z "$(ls -A "$MOUNT_ROOT")" ]; then
+              read -r -p "Warning: The vault is empty. Do you want to proceed and create an empty archive? (y/N) " confirm
+              if [[ ! "$confirm" =~ ^[yY] ]]; then
+                  continue
+              fi
+            fi
+
+            if [ ${#GPG_RECIPIENTS_OPTS[@]} -gt 0 ]; then
+                echo "Signing and encrypting changes for recipients..."
+                if tar -c -C "$MOUNT_ROOT" . | gpg --sign --encrypt "${GPG_RECIPIENTS_OPTS[@]}" -o "${GPG_FILE}.tmp"; then
+                  mv "${GPG_FILE}.tmp" "${GPG_FILE}"
+                  echo "Secrets saved and encrypted successfully."
+                  break
+                else
+                  echo "Error: GPG encryption failed. Your changes have NOT been saved." >&2
+                  echo "Please try again or choose '(d)estroy & exit'."
+                fi
+            else
+                echo "Encrypting changes with a passphrase..."
+                if tar -c -C "$MOUNT_ROOT" . | gpg -c -o "${GPG_FILE}.tmp"; then
+                  mv "${GPG_FILE}.tmp" "${GPG_FILE}"
+                  echo "Secrets saved and encrypted successfully."
+                  break
+                else
+                  echo "Error: GPG encryption failed. Your changes have NOT been saved." >&2
+                  echo "Please try again or choose '(d)estroy & exit'."
+                fi
+            fi;; 
+        [Dd]* ) 
+            break;; 
+        * ) echo "Please enter 's' or 'd'.";;
+    esac
+done
+
+cleanup 0
+
