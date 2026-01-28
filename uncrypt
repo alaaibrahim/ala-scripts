@@ -89,10 +89,11 @@ cleanup() {
         mount | grep -q "$MOUNT_ROOT" && hdiutil detach "$MOUNT_ROOT" -force -quiet
         rm -rf "$(dirname "$BUNDLE_PATH")"
     else
-        mountpoint -q "$MOUNT_ROOT" && $FUSERMOUNT -u "$MOUNT_ROOT"
+        mountpoint -q "$MOUNT_ROOT" && "$FUSERMOUNT" -u "$MOUNT_ROOT"
         rm -rf "$CIPHER_DIR"
     fi
     rm -rf "$MOUNT_ROOT"
+    rm -f "${GPG_FILE}.tmp" 2>/dev/null
     unset INTERNAL_PASS
     exit "$status"
 }
@@ -110,8 +111,6 @@ if [ "$OS_TYPE" == "Darwin" ]; then
         -volname "vault" -encryption AES-256 -stdinpass "$BUNDLE_PATH" -quiet || { echo "Failed to create sparse bundle" >&2; exit 1; }
     echo -n "$INTERNAL_PASS" | hdiutil attach "$BUNDLE_PATH" -stdinpass -mountpoint "$MOUNT_ROOT" -nobrowse -quiet || { echo "Failed to attach sparse bundle" >&2; exit 1; }
 else
-    mkdir -p "$CIPHER_DIR"
-
     echo "$INTERNAL_PASS" | gocryptfs -init -quiet "$CIPHER_DIR" || { echo "Failed to initialize gocryptfs" >&2; exit 1; }
     echo "$INTERNAL_PASS" | gocryptfs -quiet "$CIPHER_DIR" "$MOUNT_ROOT" || { echo "Failed to mount gocryptfs" >&2; exit 1; }
 fi
