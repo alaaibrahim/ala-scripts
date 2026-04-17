@@ -115,3 +115,33 @@ one of the following options:
    saves them back to the original GPG file.
  * `(d)estroy & exit`: Discards all changes and tears down the temporary vault.
 
+
+## wait_for_ip
+A utility script to wait for a machine to become reachable via ping or a specific service port (like SSH).
+
+### Description
+`wait_for_ip` is designed for scenarios where you've just started a machine (e.g., a VM or a cloud instance) and want to connect as soon as it's ready. It can wait for a simple ICMP ping response or for a specific TCP port to open.
+
+### Requirements
+ * `ping`
+ * `nc` (netcat)
+
+### Usage
+```bash
+wait_for_ip [-s] <target_ip> [target_port]
+```
+
+### Options
+ * `-s`: Silent mode. Suppresses all status messages, only exiting when the target is reached.
+
+### Examples
+```bash
+# Wait for a machine to respond to ping
+wait_for_ip 192.168.1.50
+
+# Wait for SSH (port 22) to become available
+wait_for_ip 192.168.1.50 22
+
+# Silent mode (useful for scripts)
+wait_for_ip -s 192.168.1.50 22 && ssh user@192.168.1.50
+```

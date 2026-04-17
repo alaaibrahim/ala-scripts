@@ -1,0 +1,86 @@
+#!/bin/bash
+set -eo pipefail
+
+# wait_for_ip: Wait for a machine to respond to ping and/or a specific port.
+
+SILENT=false
+
+usage() {
+  echo "Usage: $(basename "$0") [-s] <target_ip> [target_port]"
+  echo "Options:"
+  echo "  -s    Silent mode (no output unless error)"
+  echo "Example: $(basename "$0") 192.168.1.10 22"
+  exit 1
+}
+
+log() {
+  if ! $SILENT; then
+    echo "$@"
+  fi
+}
+
+is_osx() {
+  [[ "$(uname)" == "Darwin" ]]
+}
+
+check_dependencies() {
+  for cmd in ping nc; do
+    if ! command -v "$cmd" &> /dev/null; then
+      echo "Error: Required command '$cmd' not found." >&2
+      exit 1
+    fi
+  done
+}
+
+wait_for_ping() {
+  local target="${1}"
+  local timeout_flag="-w"
+
+  if is_osx ; then
+    timeout_flag="-t"
+  fi
+
+  log "Waiting for $target to respond to ping..."
+  # Use -c 1 to send a single packet, and the platform-specific timeout flag
+  while ! ping -c 1 "$timeout_flag" 2 "$target" > /dev/null 2>&1; do
+    sleep 1
+  done
+  log "Ping: $target is up!"
+}
+
+wait_for_port() {
+  local target="${1}"
+  local port="${2}"
+
+  log "Waiting for $target:$port to become available..."
+  while ! nc -z -w 2 "$target" "$port" > /dev/null 2>&1; do
+    sleep 1
+  done
+  log "Port: $target:$port is open!"
+}
+
+# --- Main ---
+
+while getopts "sh" opt; do
+  case "$opt" in
+    s) SILENT=true ;;
+    h) usage ;;
+    *) usage ;;
+  esac
+done
+shift $((OPTIND-1))
+
+TARGET_IP="${1:-}"
+TARGET_PORT="${2:-}"
+
+if [[ -z "$TARGET_IP" ]]; then
+  usage
+fi
+
+check_dependencies
+
+if [[ -n "$TARGET_PORT" ]]; then
+  wait_for_port "$TARGET_IP" "$TARGET_PORT"
+else
+  wait_for_ping "$TARGET_IP"
+fi
